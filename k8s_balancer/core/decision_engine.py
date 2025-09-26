@@ -56,7 +56,12 @@ class DecisionEngine:
         try:
             response = self.sequence.invoke({'pod_snapshot': context})
             if response:
-                parsed_llm = json.loads(response)
+                if hasattr(response, 'content'):
+                    raw = response.content
+                else:
+                    raw = response
+                if isinstance(raw, str) and raw.strip():
+                    parsed_llm = json.loads(raw)
         except Exception:
             parsed_llm = None
 

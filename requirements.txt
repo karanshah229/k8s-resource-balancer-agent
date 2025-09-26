@@ -1,5 +1,12 @@
 langchain
 langchain-community
-fastmcp
-mcp-use
-pytest
+pytest==8.4.0
+pytest-asyncio==1.0.0
+pytest-xdist==3.7.0
+mcp-use==1.3.1
+langchain-openai==0.3.23
+python-dotenv==1.1.0
+fastmcp==2.6.1
+streamlit==1.49.0
+pandas==2.3.2
+typing

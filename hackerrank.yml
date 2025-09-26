@@ -1,0 +1,24 @@
+version: 1.0
+configuration:
+    has_webserver: true
+    scoring:
+        command: bash setup/test.sh
+        files:
+            - unit.xml
+    ide_config:
+        default_open_files:
+            - k8s_balancer/agent/orchestrator.py
+            - prompts/resource_analysis_prompt.txt
+            - prompts/slack_summary_prompt.txt
+        project_menu:
+            install: bash setup/install.sh
+            run: bash setup/run.sh
+            test: bash setup/test.sh
+    readonly_paths:
+        - scripts/*
+        - scripts/**/*
+        - tests/*
+        - tests/**/*
+        - pytest.ini
+        - README.md
+        - streamlit_app.py

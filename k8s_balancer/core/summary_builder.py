@@ -24,7 +24,11 @@ class SummaryBuilder:
             llm_output = None
 
         if llm_output:
-            candidate = llm_output.strip()
+            if hasattr(llm_output, 'content'):
+                candidate = llm_output.content
+            else:
+                candidate = llm_output
+            candidate = candidate.strip()
             try:
                 parsed = json.loads(candidate)
                 required = {'namespace', 'pods_scanned', 'pods_rebalanced', 'pods_escalated', 'pods_skipped'}
