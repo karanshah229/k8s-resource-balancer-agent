@@ -7,8 +7,9 @@ configuration:
             - unit.xml
     ide_config:
         default_open_files:
-            - k8s_balancer/agent/orchestrator.py
-            - prompts/resource_analysis_prompt.txt
+            - k8s_balancer/core/decision_engine.py
+            - prompts/orchestrator_system_prompt.txt
+            - prompts/orchestrator_user_prompt.txt
             - prompts/slack_summary_prompt.txt
         project_menu:
             install: bash setup/install.sh
@@ -17,6 +18,8 @@ configuration:
     readonly_paths:
         - scripts/*
         - scripts/**/*
+        - setup/*
+        - setup/**/*
         - tests/*
         - tests/**/*
         - pytest.ini
