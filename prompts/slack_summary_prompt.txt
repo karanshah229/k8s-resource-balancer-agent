@@ -1,0 +1,6 @@
+You are preparing the final Slack summary for a resource rebalance run.
+Run outcome data:
+{run_outcome}
+
+Produce valid JSON with keys namespace, pods_scanned, pods_rebalanced, pods_escalated, pods_skipped.
+No commentary outside the JSON.
