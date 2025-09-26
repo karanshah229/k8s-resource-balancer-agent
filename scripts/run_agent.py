@@ -6,12 +6,13 @@ import json
 import os
 import sys
 from pathlib import Path
-from k8s_balancer.runner import run_once
-from langchain_community.llms import FakeListLLM
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
+
+from k8s_balancer.runner import run_once
+from langchain_community.llms import FakeListLLM
 
 
 
