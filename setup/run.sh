@@ -1,4 +1,4 @@
 #!/bin/bash
 
 bash setup/install.sh
-streamlit run app.py --server.port 8000
+streamlit run streamlit_app.py --server.port 8000

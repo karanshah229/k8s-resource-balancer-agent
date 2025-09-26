@@ -77,8 +77,24 @@ def run_agent_once(scenario_name):
     return summary, state, slack_text, fixtures
 
 
+def _extract_entry(summary, key, pod_name):
+    for item in summary.get(key, []):
+        name = item.get('name') or item.get('pod_name') or item.get('pod')
+        if name == pod_name:
+            return item
+    return None
+
+
+def _missing_summary(detail):
+    return False, detail
+
+
 def scenario_oom(summary, state, baseline):
-    entry = next(item for item in summary['pods_rebalanced'] if item['name'] == 'checkout-service')
+    if not summary:
+        return _missing_summary('Summary missing. Fill in the prompts before running scenarios.')
+    entry = _extract_entry(summary, 'pods_rebalanced', 'checkout-service')
+    if not entry:
+        return _missing_summary('No checkout-service rebalance found in summary.')
     original = parse_quantity(baseline['descriptions']['checkout-service']['mem_limit'])
     new = parse_quantity(entry['mem_limit'])
     passed = abs(new - original * 1.25) <= original * 0.05
@@ -87,7 +103,11 @@ def scenario_oom(summary, state, baseline):
 
 
 def scenario_idle(summary, state, baseline):
-    entry = next(item for item in summary['pods_rebalanced'] if item['name'] == 'idle-service')
+    if not summary:
+        return _missing_summary('Summary missing. Fill in the prompts before running scenarios.')
+    entry = _extract_entry(summary, 'pods_rebalanced', 'idle-service')
+    if not entry:
+        return _missing_summary('No idle-service rebalance found in summary.')
     original_cpu = parse_quantity(baseline['descriptions']['idle-service']['cpu_request'])
     original_mem = parse_quantity(baseline['descriptions']['idle-service']['mem_request'])
     new_cpu = parse_quantity(entry['cpu_request'])
@@ -101,7 +121,11 @@ def scenario_idle(summary, state, baseline):
 
 
 def scenario_inconsistent(summary, state, baseline):
-    entry = next(item for item in summary['pods_escalated'] if item['name'] == 'recommendation-service')
+    if not summary:
+        return _missing_summary('Summary missing. Fill in the prompts before running scenarios.')
+    entry = _extract_entry(summary, 'pods_escalated', 'recommendation-service')
+    if not entry:
+        return _missing_summary('No recommendation-service escalation found in summary.')
     issues = state.get('jira_issues', [])
     passed = bool(issues) and entry['url'] == issues[0]['url']
     detail = entry['reason']
@@ -109,7 +133,11 @@ def scenario_inconsistent(summary, state, baseline):
 
 
 def scenario_healthy(summary, state, baseline):
-    entry = next(item for item in summary['pods_skipped'] if item['name'] == 'auth-service')
+    if not summary:
+        return _missing_summary('Summary missing. Fill in the prompts before running scenarios.')
+    entry = _extract_entry(summary, 'pods_skipped', 'auth-service')
+    if not entry:
+        return _missing_summary('No auth-service skip entry found in summary.')
     passed = entry['reason'] == 'healthy'
     detail = 'Pod marked healthy and skipped'
     return passed, detail
