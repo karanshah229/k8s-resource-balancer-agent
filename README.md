@@ -1,42 +1,50 @@
-# Kubernetes Resource Rebalancer Agent Challenge
+# Kubernetes Resource Rebalancer Agent — Challenge Brief
 
-## Persona
-Developer in a product-based company running microservices on Kubernetes.
+You are a developer in a product-based company operating microservices on Kubernetes. You want to develop a AI Agent that rebalances kuberenetes pods based on certain conditions to make your work easy.
 
-## Scenario
-Some pods in the target namespace suffer from frequent OOMKills while others stay underutilized. Engineers currently tweak resource requests/limits manually, which is slow and error-prone. Your mission is to build an autonomous agent that keeps the namespace balanced.
+## Problem Statement
+
+Some pods are overloaded (frequent OOMKills) while others stay underutilised. Manually tweaking requests/limits is slow, inconsistent, and often introduces new incidents. You need an autonomous agent that:
+
+-   Detects problematic pods.
+-   Decides whether to rebalance automatically or raise an escalation.
+-   Acts on the cluster through Kubernetes MCP tools.
+-   Notifies the team in Slack with a structured summary of everything that happened.
 
 ## Deterministic Goal
-A run is successful when:
-- Every pod in the namespace is scanned.
-- Each problematic pod is either rebalanced automatically or escalated to Jira.
-- A Slack message posts a JSON summary of every action.
 
-## MCP Tooling
-The FastMCP server must expose mocked tools that behave like the platform services. The agent communicates through `mcp-use`.
+A single run is considered successful when:
 
-```
-mcp:k8s.metrics.query(pod, metric, window) -> {"avg": number, "p95": number}
-mcp:k8s.describe(pod) -> {"cpu_request": str, "cpu_limit": str, "mem_request": str, "mem_limit": str}
-mcp:k8s.update_resources(pod, cpu_request?, cpu_limit?, mem_request?, mem_limit?) -> {"status": "updated" | "failed"}
-mcp:slack.post_message(channel, text, blocks?) -> {"ts": str, "url": str}
-mcp:jira.create_issue(project, title, body) -> {"issue_id": str, "url": str}
-```
+1. Every pod in the target namespace is scanned.
+2. Each problematic pod is either rebalanced (via resource updates) or escalated (via Jira).
+3. A Slack message is posted with a JSON summary covering all actions taken, escalations created, and healthy pods that were skipped.
 
-Use `metric` values `cpu`, `memory`, and `oom_kills` with a `window` of `24h` when querying metrics so the fixtures line up with the tests.
+## MCP Tools
 
-All tools should return deterministic mock data for the provided fixtures so tests can assert behaviour.
+You must rely on the mocked MCP interface provided by the FastMCP server. Relevant tools:
+
+-   `mcp:k8s.metrics.query(pod, metric, window)` → `{"avg": number, "p95": number}`
+-   `mcp:k8s.describe(pod)` → `{"cpu_request": string, "cpu_limit": string, "mem_request": string, "mem_limit": string}`
+-   `mcp:k8s.update_resources(...)` → `{"status": "updated" | "failed"}`
+-   `mcp:slack.post_message(channel, text, blocks?)` → `{"ts": string, "url": string}`
+-   `mcp:jira.create_issue(project, title, body)` → `{"issue_id": string, "url": string}`
 
 ## Decision Rules
-- If the pod has `OOMKilled >= 3` in the last 24h **or** `avg memory usage > 90%` of limit: increase memory limit by +25%.
-- If `avg CPU < 20%` **and** `avg memory < 20%`: decrease requests by –20%.
-- If metrics are inconsistent (averages low but p95 spikes), escalate via Jira and include the escalation in the Slack summary.
-- Healthy pods must be listed as skipped.
+
+Implement the deterministic playbook exactly as follows:
+
+-   `OOMKilled ≥ 3` in the last 24 h **or** memory average > 90 % of the limit → increase the memory **limit** by +25 % using `mcp:k8s.update_resources`.
+-   CPU and memory averages < 20 % over 24 h → decrease both requests by –20 % using `mcp:k8s.update_resources`.
+-   Inconsistent metrics (averages low but p95 high) → escalate via `mcp:jira.create_issue` and reference the escalation in the Slack summary.
+-   Otherwise mark the pod as healthy and do nothing.
 
 ## Expected Slack Notification
-Slack message must include:
-1. Header text: `✅ Resource Rebalance Completed`
-2. Code block containing JSON shaped as:
+
+The run finishes by calling `mcp:slack.post_message` with:
+
+1. Header text `✅ Resource Rebalance Completed`.
+2. A code block containing JSON in this shape:
+
 ```
 {
   "namespace": "default",
@@ -52,59 +60,52 @@ Slack message must include:
   ]
 }
 ```
-3. Links to any Jira escalations.
 
-## Project Rules
-1. Use `pip` with the provided `requirements.text`. No build tools.
-2. Do not add type hints.
-3. Interact with models through LangChain (never call an SDK like `openai` directly).
-4. Build the MCP server with FastMCP; build the MCP client with `mcp-use`.
-5. Store prompts as standalone text files inside the `prompts/` directory.
-6. Keep dependencies minimal.
-7. Group functionality in separate packages under `k8s_balancer/`.
-8. MCP tools must return mock data driven by the test scenario.
-9. Automated tests will be added later to validate your implementation.
+3. Any Jira URLs appended under the code block when escalations occur.
+
+## What you need to code
+
+The following files contain `# TODO(candidate)` markers and must be completed:
+
+| Area              | File                                     | What you need to supply                                                                                |
+| ----------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| System prompt     | `prompts/orchestrator_system_prompt.txt` | Write the deterministic “playbook” instructions the LLM must follow.                                   |
+| User prompt       | `prompts/orchestrator_user_prompt.txt`   | Provide the run-time instructions (namespace, Slack channel, completion signal).                       |
+| Orchestrator flow | `k8s_balancer/agent/orchestrator.py`     | Dispatch the MCP-enabled agent, capture the latest outcome, and return a summary for downstream tests. |
+
+Until you replace those placeholders the agent raises `NotImplementedError` and **no tests will pass**. Filling the prompts and orchestrator logic is the minimum work required to make the checks go green.
+
+## Environment Expectations
+
+-   Python 3.11+
+-   Dependencies installed via `pip install -r requirements.text`
+-   LangChain is mandatory for LLM calls—do not talk to the OpenAI SDK directly.
+-   The MCP stack uses FastMCP (server) and `mcp-use` (client). Leave that wiring intact.
+-   Keep all prompts in the `prompts/` directory and avoid adding type hints.
 
 ## Repository Layout
+
 ```
 README.md
 requirements.text
 prompts/
-  resource_analysis_prompt.txt
+  orchestrator_system_prompt.txt
+  orchestrator_user_prompt.txt
   slack_summary_prompt.txt
 k8s_balancer/
   agent/
+    agent_runner.py
     orchestrator.py
   core/
-    decision_engine.py
     prompt_loader.py
     summary_builder.py
   integrations/
     k8s_client.py
-    slack_client.py
   mcp/
     server.py
-    client_runner.py
   runner.py
 scripts/
   run_agent.py
 tests/
-  README.md
+  test_agent_integration.py
 ```
-
-## Getting Started
-1. Install dependencies: `pip install -r requirements.text`.
-2. Implement the FastMCP server mocks in `k8s_balancer/mcp/server.py`.
-3. Wire up `mcp-use` in the integration clients.
-4. Implement the decision logic and orchestration flow.
-5. Build the Slack summary using LangChain prompts.
-6. Add tests under `tests/` once the core behaviour is ready.
-
-## Testing Expectations
-The final tests will simulate four pods:
-- OOMKilled pod -> expect `+25%` memory limit update.
-- Idle pod -> expect `-20%` request reduction.
-- Inconsistent metrics -> expect Jira escalation and Slack link.
-- Healthy pod -> expect skip entry.
-
-Every pod must end up in exactly one of the three result lists. The Slack JSON must be deterministic so assertions can parse it safely.
